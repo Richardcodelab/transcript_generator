@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>녹취록 축약 프롬프트 생성기</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .input-section {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .output-section {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .generate-btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .generate-btn:active {
+            transform: translateY(0);
+        }
+
+        .output-container {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            line-height: 1.6;
+            max-height: 600px;
+            overflow-y: auto;
+            font-size: 0.95rem;
+        }
+
+        .copy-btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+
+        .copy-btn.copied {
+            background: #6c757d;
+        }
+
+        .section-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .checkbox-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .input-section,
+            .output-section {
+                padding: 20px;
+            }
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            padding: 40px 20px;
+        }
+
+        .loading {
+            text-align: center;
+            color: #667eea;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎙️ 녹취록 축약 프롬프트 생성기</h1>
+            <p>회의 주제와 유형을 입력하면 맞춤형 프롬프트를 자동 생성합니다</p>
+        </div>
+
+        <div class="main-content">
+            <div class="input-section">
+                <h2 class="section-title">회의 정보 입력</h2>
+                
+                <div class="form-group">
+                    <label for="meetingTopic">회의 주제 *</label>
+                    <input type="text" id="meetingTopic" placeholder="예: AI 기반 정책연구 방법론 개발">
+                </div>
+
+                <div class="form-group">
+                    <label for="meetingType">회의 유형 *</label>
+                    <select id="meetingType">
+                        <option value="">회의 유형을 선택하세요</option>
+                        <option value="research">연구 프로젝트 회의</option>
+                        <option value="fgi">FGI (포커스 그룹 인터뷰)</option>
+                        <option value="forum">정책포럼/학술포럼</option>
+                        <option value="kickoff">킥오프 미팅</option>
+                        <option value="troubleshooting">문제해결/이슈 대응</option>
+                        <option value="regular">정기 업무회의</option>
+                        <option value="strategy">전략/기획 회의</option>
+                        <option value="international">국제협력 회의</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="participants">참석자 정보</label>
+                    <textarea id="participants" placeholder="예: 연구책임자, 세부과제 책임자, 참여연구원, 외부 전문가"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="duration">회의 시간</label>
+                    <select id="duration">
+                        <option value="30min">30분 이내</option>
+                        <option value="1hour">1시간</option>
+                        <option value="2hours" selected>1-2시간</option>
+                        <option value="halfday">반나절</option>
+                        <option value="fullday">하루 종일</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="purpose">회의 목적</label>
+                    <select id="purpose">
+                        <option value="decision">의사결정</option>
+                        <option value="sharing">정보공유</option>
+                        <option value="brainstorming">브레인스토밍</option>
+                        <option value="problem-solving">문제해결</option>
+                        <option value="planning">계획수립</option>
+                        <option value="review">검토/평가</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>추출하고 싶은 정보 (복수 선택 가능)</label>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="decisions" checked>
+                            <label for="decisions">의사결정 사항</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="actions" checked>
+                            <label for="actions">액션 아이템</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="issues">
+                            <label for="issues">주요 이슈</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="opinions">
+                            <label for="opinions">의견 분포</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="data">
+                            <label for="data">수치/데이터</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="schedule">
+                            <label for="schedule">일정 계획</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="background">추가 배경정보</label>
+                    <textarea id="background" placeholder="프로젝트 단계, 관련 정책, 이전 회의 내용 등"></textarea>
+                </div>
+
+                <button class="generate-btn" onclick="generatePrompt()">
+                    🚀 프롬프트 생성하기
+                </button>
+            </div>
+
+            <div class="output-section">
+                <h2 class="section-title">생성된 프롬프트</h2>
+                <div id="promptOutput" class="output-container">
+                    <div class="empty-state">
+                        좌측에서 회의 정보를 입력하고 '프롬프트 생성하기' 버튼을 클릭하세요.<br>
+                        맞춤형 녹취록 축약 프롬프트가 생성됩니다.
+                    </div>
+                </div>
+                <button class="copy-btn" id="copyBtn" onclick="copyPrompt()" style="display: none;">
+                    📋 프롬프트 복사
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const promptTemplates = {
+            research: {
+                title: "연구 프로젝트 회의",
+                sections: {
+                    basic: ["연구 진행 현황", "기술적 이슈 및 해결방안", "의사결정 사항"],
+                    decisions: ["확정된 연구 방향", "보류된 결정사항", "재검토 필요사항"],
+                    actions: ["담당자별 액션아이템", "마감일정", "다음 단계 계획"],
+                    issues: ["기술적 문제점", "일정 지연 요소", "예산 관련 이슈"],
+                    data: ["실험 결과", "분석 데이터", "성과 지표"],
+                    schedule: ["마일스톤 일정", "중간 점검일", "최종 완료 목표"]
+                }
+            },
+            fgi: {
+                title: "FGI (포커스 그룹 인터뷰)",
+                sections: {
+                    basic: ["참여자별 핵심 의견", "주제별 의견 분포", "정책적 제언"],
+                    opinions: ["찬성 의견 및 근거", "반대 의견 및 근거", "중립/보완 의견"],
+                    issues: ["현행 정책 문제점", "이해관계자간 갈등", "실행상 어려움"],
+                    data: ["제시된 사례", "경험담", "구체적 수치"],
+                    decisions: ["정책 개선 방향", "우선순위", "합의 도출사항"]
+                }
+            },
+            forum: {
+                title: "정책포럼/학술포럼",
+                sections: {
+                    basic: ["발표별 핵심 메시지", "토론 주요 쟁점", "정책적 시사점"],
+                    opinions: ["전문가 의견 분포", "정부 입장", "업계 관점"],
+                    data: ["주요 통계", "연구 결과", "국제 비교 자료"],
+                    decisions: ["정책 제언", "후속 과제", "협력 방안"],
+                    issues: ["현안 진단", "향후 과제", "위험 요소"]
+                }
+            },
+            kickoff: {
+                title: "킥오프 미팅",
+                sections: {
+                    basic: ["프로젝트 개요", "역할 분담", "추진 계획"],
+                    decisions: ["확정된 사항", "조건부 결정", "미결정 사항"],
+                    actions: ["즉시 실행사항", "단계별 과제", "책임자 배정"],
+                    schedule: ["주요 마일스톤", "정기 점검일", "완료 목표일"],
+                    issues: ["위험 요소", "제약 사항", "대응 방안"]
+                }
+            },
+            troubleshooting: {
+                title: "문제해결/이슈 대응",
+                sections: {
+                    basic: ["문제 정의", "원인 분석", "해결 방안"],
+                    actions: ["즉시 대응조치", "단기 해결책", "장기 개선안"],
+                    decisions: ["의사결정 필요사항", "승인 대기사항", "보고 체계"],
+                    issues: ["근본 원인", "영향 범위", "재발 방지책"],
+                    schedule: ["대응 일정", "점검 주기", "완료 목표"]
+                }
+            },
+            regular: {
+                title: "정기 업무회의",
+                sections: {
+                    basic: ["진행상황 점검", "주요 결정사항", "업무 배분"],
+                    actions: ["부서별 과제", "개인별 업무", "다음 회의 준비사항"],
+                    decisions: ["새로운 방향", "정책 변경", "승인 사항"],
+                    issues: ["지연 사항", "문제점", "개선 필요사항"],
+                    schedule: ["업무 일정", "보고 스케줄", "마감일"]
+                }
+            },
+            strategy: {
+                title: "전략/기획 회의",
+                sections: {
+                    basic: ["전략적 논점", "결정된 방향성", "실행 계획"],
+                    decisions: ["단기 전략", "중장기 전략", "정책 방향"],
+                    actions: ["실행 단계", "담당 부서", "추진 일정"],
+                    issues: ["내부 요인", "외부 환경", "리스크 요소"],
+                    data: ["시장 분석", "경쟁 현황", "성과 지표"]
+                }
+            },
+            international: {
+                title: "국제협력 회의",
+                sections: {
+                    basic: ["협력 제안 내용", "상호 관심사항", "구체적 협력방안"],
+                    decisions: ["합의사항", "조건부 추진", "추가 검토사항"],
+                    actions: ["즉시 추진사항", "단계적 협력", "후속 일정"],
+                    issues: ["협력 장애요인", "법적 검토사항", "예산 문제"],
+                    schedule: ["MOU 체결일정", "실무진 회의", "다음 회의"]
+                }
+            }
+        };
+
+        function generatePrompt() {
+            const topic = document.getElementById('meetingTopic').value.trim();
+            const type = document.getElementById('meetingType').value;
+            const participants = document.getElementById('participants').value.trim();
+            const duration = document.getElementById('duration').value;
+            const purpose = document.getElementById('purpose').value;
+            const background = document.getElementById('background').value.trim();
+
+            if (!topic || !type) {
+                alert('회의 주제와 유형을 입력해주세요.');
+                return;
+            }
+
+            // Show loading
+            const outputDiv = document.getElementById('promptOutput');
+            outputDiv.innerHTML = '<div class="loading">프롬프트를 생성 중입니다...</div>';
+
+            setTimeout(() => {
+                const prompt = createCustomPrompt(topic, type, participants, duration, purpose, background);
+                outputDiv.textContent = prompt;
+                document.getElementById('copyBtn').style.display = 'block';
+            }, 500);
+        }
+
+        function createCustomPrompt(topic, type, participants, duration, purpose, background) {
+            const template = promptTemplates[type];
+            const selectedSections = getSelectedSections();
+            
+            let prompt = `다음은 "${topic}" 관련 ${template.title} 녹취록입니다.\n`;
+            
+            if (participants) {
+                prompt += `참석자는 ${participants} 등입니다.\n`;
+            }
+            
+            if (background) {
+                prompt += `배경정보: ${background}\n`;
+            }
+            
+            prompt += `\n회의 목적에 맞게 다음 형식으로 핵심내용을 추출해주세요:\n\n`;
+
+            // Add selected sections
+            selectedSections.forEach(section => {
+                if (template.sections[section]) {
+                    template.sections[section].forEach(item => {
+                        prompt += `**${item}**\n- \n\n`;
+                    });
+                }
+            });
+
+            // Add specific instructions based on meeting type
+            prompt += getTypeSpecificInstructions(type, duration, purpose);
+            
+            prompt += `\n[녹취록 내용을 여기에 입력하세요]`;
+
+            return prompt;
+        }
+
+        function getSelectedSections() {
+            const sections = [];
+            sections.push('basic'); // Always include basic sections
+            
+            if (document.getElementById('decisions').checked) sections.push('decisions');
+            if (document.getElementById('actions').checked) sections.push('actions');
+            if (document.getElementById('issues').checked) sections.push('issues');
+            if (document.getElementById('opinions').checked) sections.push('opinions');
+            if (document.getElementById('data').checked) sections.push('data');
+            if (document.getElementById('schedule').checked) sections.push('schedule');
+            
+            return sections;
+        }
+
+        function getTypeSpecificInstructions(type, duration, purpose) {
+            let instructions = '\n**추가 지시사항:**\n';
+            
+            if (duration === '30min' || duration === '1hour') {
+                instructions += '- 짧은 회의이므로 핵심 결정사항 위주로 간결하게 정리해주세요.\n';
+            } else if (duration === 'halfday' || duration === 'fullday') {
+                instructions += '- 긴 회의이므로 시간대별 또는 주제별로 구분하여 정리해주세요.\n';
+            }
+
+            switch (type) {
+                case 'fgi':
+                    instructions += '- 참여자별 의견은 익명 처리하되 직책/전문분야는 표시해주세요.\n';
+                    instructions += '- 정책 제언에 활용할 수 있도록 근거와 사례를 함께 정리해주세요.\n';
+                    break;
+                case 'research':
+                    instructions += '- 기술적 내용은 구체적으로, 일정은 명확한 날짜와 함께 기록해주세요.\n';
+                    instructions += '- 연구 성과와 관련된 수치나 데이터는 정확히 기록해주세요.\n';
+                    break;
+                case 'forum':
+                    instructions += '- 언론 보도 가치가 있는 내용은 별도 표시해주세요.\n';
+                    instructions += '- 정부 관계자의 발언은 정책 변화 신호 여부를 함께 분석해주세요.\n';
+                    break;
+                case 'kickoff':
+                    instructions += '- 확정사항과 검토사항을 명확히 구분해주세요.\n';
+                    instructions += '- 역할 분담은 기관별/개인별로 구체적으로 정리해주세요.\n';
+                    break;
+            }
+
+            return instructions;
+        }
+
+        function copyPrompt() {
+            const promptText = document.getElementById('promptOutput').textContent;
+            navigator.clipboard.writeText(promptText).then(() => {
+                const copyBtn = document.getElementById('copyBtn');
+                const originalText = copyBtn.textContent;
+                copyBtn.textContent = '✅ 복사완료!';
+                copyBtn.classList.add('copied');
+                
+                setTimeout(() => {
+                    copyBtn.textContent = originalText;
+                    copyBtn.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                alert('복사에 실패했습니다. 브라우저가 클립보드 접근을 지원하지 않을 수 있습니다.');
+            });
+        }
+
+        // Initialize default values
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('purpose').value = 'decision';
+            document.getElementById('duration').value = '2hours';
+        });
+    </script>
+</body>
+</html>
